@@ -1,0 +1,62 @@
+#@ load("@ytt:data", "data")
+#@ load("@ytt:yaml", "yaml")
+
+#@ def tap_values():
+shared:
+  ingress_domain: 127-0-0-1.sslip.io
+  image_registry:
+    project_path: #@ data.values.image_registry.project_path
+    username: #@ data.values.image_registry.username
+    password: #@ data.values.image_registry.password
+  ca_cert_data: #@ data.values.default_ca.crt
+
+ceip_policy_disclosed: true
+profile: iterate
+
+supply_chain: basic
+
+contour:
+  contour:
+    replicas: 1
+  envoy:
+    service:
+      type: NodePort
+      nodePorts:
+        http: 31080
+        https: 31443
+    hostPorts:
+      enable: true
+
+cnrs:
+  domain_template: "{{.Name}}-{{.Namespace}}.{{.Domain}}"
+  default_tls_secret: tanzu-system-ingress/tap-default-tls
+  provider: local
+
+package_overlays:
+- name: contour
+  secrets:
+  - name: contour-default-tls
+- name: cnrs
+  secrets:
+  - name: cnrs-https
+- name: tap-telemetry
+  secrets:
+  - name: tap-telemetry-remove
+
+excluded_packages:
+- policy.apps.tanzu.vmware.com
+- image-policy-webhook.signing.apps.tanzu.vmware.com
+- eventing.tanzu.vmware.com
+- sso.apps.tanzu.vmware.com
+#@ end
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tap-tap-install-values
+  namespace: tap-install
+  annotations:
+    kapp.k14s.io/change-group: "tap-install-values"
+type: Opaque
+stringData:
+  tap-values.yaml: #@ yaml.encode(tap_values())

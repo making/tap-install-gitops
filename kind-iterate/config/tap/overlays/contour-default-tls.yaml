@@ -1,0 +1,58 @@
+#@ load("@ytt:data", "data")
+apiVersion: v1
+kind: Secret
+metadata:
+  name: contour-default-tls
+  namespace: tap-install
+  annotations:
+    kapp.k14s.io/change-group: "tap-overlays"
+type: Opaque
+stringData:
+  #@yaml/text-templated-strings	
+  contour-default-tls.yaml: |
+    #@ load("@ytt:data", "data")
+    #@ load("@ytt:overlay", "overlay")
+    #@ namespace = data.values.namespace
+    ---
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: default-ca
+      namespace: #@ namespace
+    type: kubernetes.io/tls
+    stringData:
+      tls.crt: (@= data.values.default_ca.crt @)
+      tls.key: (@= data.values.default_ca.key @)
+    ---
+    apiVersion: cert-manager.io/v1
+    kind: Issuer
+    metadata:
+      name: default-ca-issuer
+      namespace: #@ namespace
+    spec:
+      ca:
+        secretName: default-ca
+    ---
+    apiVersion: cert-manager.io/v1
+    kind: Certificate
+    metadata:
+      name: tap-default-tls
+      namespace: #@ namespace
+    spec:
+      dnsNames:
+      - #@ "*.127-0-0-1.sslip.io"
+      issuerRef:
+        kind: Issuer
+        name: default-ca-issuer
+      secretName: tap-default-tls
+    ---
+    apiVersion: projectcontour.io/v1
+    kind: TLSCertificateDelegation
+    metadata:
+      name: contour-delegation
+      namespace: #@ namespace
+    spec:
+      delegations:
+      - secretName: tap-default-tls
+        targetNamespaces:
+        - "*"
