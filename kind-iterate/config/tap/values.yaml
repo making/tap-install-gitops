@@ -33,6 +33,9 @@ cnrs:
   provider: local
 
 package_overlays:
+- name: buildservice
+  secrets:
+  - name: buildservice-add-rust-buildpack
 - name: contour
   secrets:
   - name: contour-default-tls
